@@ -1,0 +1,12 @@
+import { z } from 'zod';
+export const id=z.string().uuid();
+export const phone=z.string().transform(v=>v.replace(/[\s()\-]/g,'')).refine(v=>/^\+[1-9]\d{9,14}$/.test(v),'Телефон в формате +79991234567');
+export const registration=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().min(1).max(80),phone,password:z.string().min(10).max(128)}).strict();
+export const login=z.object({phone,password:z.string().min(1).max(128)}).strict();
+export const category=z.enum(['trash','recycling','greening','other']);
+export const paging=z.object({page:z.coerce.number().int().min(1).max(100000).default(1),limit:z.coerce.number().int().min(1).max(50).default(20)});
+export const taskInput=z.object({title:z.string().trim().min(3).max(120),description:z.string().trim().min(10).max(3000),location:z.string().trim().min(3).max(300),reward:z.number().int().min(1).max(10000),category,difficulty:z.enum(['easy','medium','hard']).default('easy'),deadline:z.string().datetime().refine(v=>Date.parse(v)>Date.now(),'Срок должен быть в будущем'),photoId:id.optional(),latitude:z.number().min(-90).max(90).optional(),longitude:z.number().min(-180).max(180).optional(),clientKey:id}).strict().refine(v=>(v.latitude===undefined)===(v.longitude===undefined),'Нужны обе координаты');
+export const reportInput=z.object({photoId:id,description:z.string().trim().min(10).max(3000),category,address:z.string().trim().min(3).max(300),suggestedPoints:z.number().int().min(1).max(10000),latitude:z.number().min(-90).max(90).optional(),longitude:z.number().min(-180).max(180).optional(),clientKey:id}).strict().refine(v=>(v.latitude===undefined)===(v.longitude===undefined),'Нужны обе координаты');
+export const reviewInput=z.object({decision:z.enum(['accept','reject']),reason:z.string().trim().max(1000).optional()}).strict().refine(v=>v.decision!=='reject'||!!v.reason,'Укажи причину отказа');
+export const completionInput=z.object({photoId:id,description:z.string().trim().min(10).max(3000)}).strict();
+export const settingsInput=z.object({language:z.enum(['ru','en']),reminders:z.boolean(),verification:z.boolean(),points:z.boolean()}).strict();

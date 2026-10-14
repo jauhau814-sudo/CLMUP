@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16.10-bookworm
+    environment:
+      POSTGRES_DB: clnup
+      POSTGRES_USER: clnup
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run node scripts/setup.mjs first}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clnup -d clnup"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://clnup:${POSTGRES_PASSWORD}@db:5432/clnup
+      SESSION_SECRET: ${SESSION_SECRET:?Run node scripts/setup.mjs first}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      UPLOAD_DIR: /app/uploads
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+    ports:
+      - "- "3000:3000""
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+volumes:
+  postgres_data:
+  uploads:

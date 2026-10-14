@@ -1,0 +1,166 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum Role {
+ MEMBER
+ MODERATOR
+ ADMIN
+}
+enum TaskStatus {
+ PENDING
+ ACTIVE
+ CLAIMED
+ REVIEW
+ COMPLETED
+ REJECTED
+}
+enum ReviewStatus {
+ PENDING
+ ACCEPTED
+ REJECTED
+}
+enum WithdrawalStatus {
+ PENDING
+ CANCELLED
+ REJECTED
+}
+model User {
+ id String @id @default(uuid()) @db.Uuid
+ phone String @unique @db.VarChar(20)
+ firstName String @db.VarChar(80)
+ lastName String @db.VarChar(80)
+ passwordHash String
+ role Role @default(MEMBER)
+ points Int @default(0)
+ earnedPoints Int @default(0)
+ lastSeenAt DateTime @default(now())
+ settings Json @default("{\"language\":\"ru\",\"reminders\":true,\"verification\":true,\"points\":true}")
+ createdAt DateTime @default(now())
+ tasks Task[] @relation("creator")
+ claims Claim[]
+ uploads Upload[]
+ reports Report[]
+ activities Activity[]
+ withdrawals Withdrawal[]
+ reviews Review[]
+}
+model Task {
+ id String @id @default(uuid()) @db.Uuid
+ creatorId String? @db.Uuid
+ creator User? @relation("creator",fields:[creatorId],references:[id])
+ title String @db.VarChar(120)
+ description String @db.VarChar(3000)
+ location String @db.VarChar(300)
+ reward Int
+ category String @db.VarChar(20)
+ difficulty String @default("easy") @db.VarChar(10)
+ deadline DateTime
+ status TaskStatus @default(PENDING)
+ photoId String? @db.Uuid
+ photo Upload? @relation(fields:[photoId],references:[id])
+ latitude Float?
+ longitude Float?
+ rejectionReason String? @db.VarChar(1000)
+ clientKey String @unique @default(uuid())
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ claim Claim?
+ reviews Review[]
+ @@index([status,category,createdAt])
+}
+model Claim {
+ id String @id @default(uuid()) @db.Uuid
+ taskId String @unique @db.Uuid
+ task Task @relation(fields:[taskId],references:[id])
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ status String @default("in_progress") @db.VarChar(20)
+ photoId String? @db.Uuid
+ photo Upload? @relation(fields:[photoId],references:[id])
+ description String? @db.VarChar(3000)
+ rejectionReason String? @db.VarChar(1000)
+ createdAt DateTime @default(now())
+ submittedAt DateTime?
+ completedAt DateTime?
+ @@index([userId,status])
+}
+model Upload {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ filename String @unique
+ mime String @default("image/jpeg")
+ size Int
+ createdAt DateTime @default(now())
+ tasks Task[]
+ claims Claim[]
+ reports Report[]
+}
+model Report {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ photoId String @db.Uuid
+ photo Upload @relation(fields:[photoId],references:[id])
+ description String @db.VarChar(3000)
+ category String @db.VarChar(20)
+ address String @db.VarChar(300)
+ suggestedPoints Int
+ latitude Float?
+ longitude Float?
+ status ReviewStatus @default(PENDING)
+ rejectionReason String? @db.VarChar(1000)
+ clientKey String @unique
+ createdAt DateTime @default(now())
+ reviews Review[]
+ @@index([userId,status])
+}
+model Activity {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ type String @db.VarChar(30)
+ description String @db.VarChar(1000)
+ points Int @default(0)
+ eventKey String @unique
+ createdAt DateTime @default(now())
+ @@index([userId,createdAt])
+}
+model Withdrawal {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id])
+ amount Int
+ status WithdrawalStatus @default(PENDING)
+ clientKey String @unique
+ createdAt DateTime @default(now())
+ @@index([userId,createdAt])
+}
+model Review {
+ id String @id @default(uuid()) @db.Uuid
+ reviewerId String @db.Uuid
+ reviewer User @relation(fields:[reviewerId],references:[id])
+ taskId String? @db.Uuid
+ task Task? @relation(fields:[taskId],references:[id])
+ reportId String? @db.Uuid
+ report Report? @relation(fields:[reportId],references:[id])
+ action String @db.VarChar(20)
+ reason String? @db.VarChar(1000)
+ createdAt DateTime @default(now())
+}
+model Session {
+ sid String @id @db.VarChar(255)
+ sess Json
+ expire DateTime @db.Timestamp(6)
+ @@index([expire])
+ @@map("session")
+}
+model RateBucket {
+ key String @id @db.VarChar(200)
+ count Int @default(0)
+ expiresAt DateTime
+}
